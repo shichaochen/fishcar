@@ -1,0 +1,53 @@
+# 摄像头参数
+camera:
+  device_index: 0
+  width: 1280
+  height: 720
+  fps: 30
+  flip_x: false
+  flip_y: true  # 根据安装方向调整
+  perspective_correction: false
+
+# YOLO 模型与推理
+detector:
+  weights_path: "/home/pi/fishcar/raspi/models/best.pt"
+  conf_threshold: 0.5
+  iou_threshold: 0.45
+  classes: null  # 单目标时保持 null
+  max_detections: 1
+  smoothing:
+    enabled: true
+    alpha: 0.6
+
+# 坐标映射与速度控制
+motion_mapping:
+  deadzone: 0.1
+  gain_x: 0.8
+  gain_y: 0.8
+  gain_rotation: 0.0
+  max_speed: 1.0
+  min_speed: 0.15
+  invert_x: false
+  invert_y: false
+  reference_width: 1280
+  reference_height: 720
+
+# 串口通信
+serial:
+  port: "/dev/ttyACM0"
+  baudrate: 115200
+  timeout: 0.1
+  heartbeat_interval: 0.2
+  watchdog_timeout: 0.5
+
+# 可视化与日志
+visualization:
+  enabled: true
+  window_name: "FishCar Tracker"
+  show_vectors: true
+  show_fps: true
+
+logging:
+  level: "INFO"
+  file: "/home/pi/fishcar/raspi/logs/runtime.log"
+

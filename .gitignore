@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Logs
+raspi/logs/
+
+# Models
+raspi/models/*.pt
+!raspi/models/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+
+# Arduino
+*.hex
+*.elf
+
