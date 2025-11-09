@@ -32,7 +32,7 @@
 1. 安装 Arduino IDE 或 PlatformIO。
 2. 打开 `arduino/fishcar.ino`，检查串口波特率、引脚映射。
 3. 根据 `arduino/README.md` 中的接线表完成布线。
-4. 烧录固件，串口监视器确认能识别指令与开关状态。
+4. 烧录固件，串口监视器确认能识别 `V 30 -10 0` 指令并打印 `STATUS ...`。
 
 ## 4. 系统联调
 

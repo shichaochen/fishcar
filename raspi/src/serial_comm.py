@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import threading
 import time
 from dataclasses import dataclass
@@ -23,7 +22,9 @@ class SerialBridge:
         self.config = config
         self._serial: serial.Serial | None = None
         self._lock = threading.Lock()
-        self._status = ArduinoStatus(time.monotonic(), {"front": False, "rear": False, "left": False, "right": False})
+        self._status = ArduinoStatus(
+            time.monotonic(), {"front": False, "rear": False, "left": False, "right": False}
+        )
         self._reader_thread: threading.Thread | None = None
         self._running = False
 
@@ -48,26 +49,29 @@ class SerialBridge:
             self._serial = None
 
     def send_vector(self, vector: MotionVector) -> None:
-        payload = {
-            "vx": round(vector.vx, 3),
-            "vy": round(vector.vy, 3),
-            "omega": round(vector.omega, 3),
-            "active": vector.active,
-        }
-        self._write(payload)
+        if not vector.active:
+            command = "V 0 0 0"
+        else:
+            vx = self._scale_component(vector.vx)
+            vy = self._scale_component(vector.vy)
+            omega = self._scale_component(vector.omega)
+            command = f"V {vx} {vy} {omega}"
+        self._write_line(command)
 
     def send_heartbeat(self) -> None:
-        self._write({"type": "heartbeat"})
+        if self.config.heartbeat_interval <= 0:
+            return
+        self._write_line("PING")
 
     def read_status(self) -> ArduinoStatus:
         with self._lock:
             return self._status
 
-    def _write(self, payload: dict) -> None:
+    def _write_line(self, payload: str) -> None:
         if self._serial is None or not self._serial.is_open:
-            logger.debug("串口未就绪，跳过发送")
+            logger.debug("串口未就绪，跳过发送: {}", payload)
             return
-        message = json.dumps(payload) + "\n"
+        message = payload.strip() + "\n"
         with self._lock:
             self._serial.write(message.encode("utf-8"))
 
@@ -78,13 +82,48 @@ class SerialBridge:
                 raw = self._serial.readline()
                 if not raw:
                     continue
-                data = json.loads(raw.decode("utf-8").strip())
-                if "limits" in data:
+                line = raw.decode("utf-8", errors="ignore").strip()
+                if not line:
+                    continue
+                logger.debug("串口收到: {}", line)
+                if line.startswith("STATUS"):
+                    limits = self._parse_status_line(line)
+                    if limits:
+                        with self._lock:
+                            self._status = ArduinoStatus(time.monotonic(), limits)
+                elif line == "PONG":
                     with self._lock:
-                        self._status = ArduinoStatus(time.monotonic(), data["limits"])
-            except json.JSONDecodeError:
-                logger.warning("解析串口数据失败: {}", raw)
+                        self._status = ArduinoStatus(time.monotonic(), self._status.limits)
+                else:
+                    # 其他提示信息仅记录日志
+                    continue
             except serial.SerialException as exc:
                 logger.error("串口异常: {}", exc)
                 break
+
+    @staticmethod
+    def _scale_component(value: float) -> int:
+        scaled = int(round(value * 100))
+        return max(-127, min(127, scaled))
+
+    @staticmethod
+    def _parse_status_line(line: str) -> dict[str, bool] | None:
+        parts = line.split()
+        if len(parts) < 5:
+            return None
+        result: dict[str, bool] = {}
+        for token in parts[1:]:
+            if "=" not in token:
+                continue
+            key, value = token.split("=", 1)
+            result[key] = value == "1"
+        if {"front", "back", "left", "right"} <= result.keys():
+            # 将 back 映射为 rear，保证兼容性
+            return {
+                "front": result["front"],
+                "rear": result["back"],
+                "left": result["left"],
+                "right": result["right"],
+            }
+        return None
 

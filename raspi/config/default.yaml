@@ -35,9 +35,9 @@ motion_mapping:
 # 串口通信
 serial:
   port: "/dev/ttyACM0"
-  baudrate: 115200
+  baudrate: 9600
   timeout: 0.1
-  heartbeat_interval: 0.2
+  heartbeat_interval: 0.0
   watchdog_timeout: 0.5
 
 # 可视化与日志

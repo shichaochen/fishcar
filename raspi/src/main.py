@@ -60,7 +60,10 @@ class Application:
             self.serial.send_vector(safe_vector)
 
             now = time.monotonic()
-            if now - last_heartbeat >= self.serial.config.heartbeat_interval:
+            if (
+                self.serial.config.heartbeat_interval > 0
+                and now - last_heartbeat >= self.serial.config.heartbeat_interval
+            ):
                 self.serial.send_heartbeat()
                 last_heartbeat = now
 

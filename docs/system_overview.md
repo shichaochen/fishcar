@@ -13,7 +13,7 @@
 - `raspi/src/camera.py`：摄像头采集与图像预处理。
 - `raspi/src/detector.py`：YOLO 推理及多目标处理。
 - `raspi/src/motion_mapping.py`：将归一化位置映射为麦克纳姆底盘速度。
-- `raspi/src/serial_comm.py`：串口协议与指令发送。
+- `raspi/src/serial_comm.py`：串口协议与指令发送（`V <vx> <vy> <omega>` 文本协议）。
 - `raspi/src/safety.py`：与 Arduino 防撞状态交互，处理失联与心跳。
 - `arduino/fishcar.ino`：解析速度向量、控制电机输出、处理微动开关。
 
