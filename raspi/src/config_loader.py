@@ -54,6 +54,8 @@ class VisualizationConfig:
     window_name: str
     show_vectors: bool
     show_fps: bool
+    show_aquarium_bounds: bool
+    show_relative_coords: bool
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,7 @@ class AppConfig:
     serial: SerialConfig
     visualization: VisualizationConfig
     logging: LoggingConfig
+    calibration_path: str
 
 
 def load_config(path: Path) -> AppConfig:
@@ -80,8 +83,20 @@ def load_config(path: Path) -> AppConfig:
     detector = DetectorConfig(**raw["detector"])
     motion_mapping = MotionMappingConfig(**raw["motion_mapping"])
     serial = SerialConfig(**raw["serial"])
-    visualization = VisualizationConfig(**raw["visualization"])
+    
+    # 可视化配置（支持新字段的默认值）
+    viz_raw = raw.get("visualization", {})
+    visualization = VisualizationConfig(
+        enabled=viz_raw.get("enabled", True),
+        window_name=viz_raw.get("window_name", "FishCar Tracker"),
+        show_vectors=viz_raw.get("show_vectors", True),
+        show_fps=viz_raw.get("show_fps", True),
+        show_aquarium_bounds=viz_raw.get("show_aquarium_bounds", True),
+        show_relative_coords=viz_raw.get("show_relative_coords", True),
+    )
+    
     logging = LoggingConfig(**raw["logging"])
+    calibration_path = raw.get("calibration_path", str(path.parent / "calibration.json"))
 
     return AppConfig(
         camera=camera,
@@ -90,5 +105,6 @@ def load_config(path: Path) -> AppConfig:
         serial=serial,
         visualization=visualization,
         logging=logging,
+        calibration_path=calibration_path,
     )
 

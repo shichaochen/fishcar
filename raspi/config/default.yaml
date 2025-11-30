@@ -46,6 +46,11 @@ visualization:
   window_name: "FishCar Tracker"
   show_vectors: true
   show_fps: true
+  show_aquarium_bounds: true  # 显示鱼缸边界
+  show_relative_coords: true  # 显示相对坐标
+
+# 标定文件路径
+calibration_path: "/home/pi/fishcar/raspi/config/calibration.json"
 
 logging:
   level: "INFO"

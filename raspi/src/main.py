@@ -6,6 +6,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from .aquarium_calibration import AquariumBounds, AquariumCalibrator
 from .camera import CameraStream
 from .config_loader import load_config
 from .detector import FishDetector
@@ -25,7 +26,16 @@ class Application:
         self.mapper = MecanumMapper(self.config.motion_mapping)
         self.serial = SerialBridge(self.config.serial)
         self.safety = SafetyManager(self.config.serial.watchdog_timeout)
-        self.visualizer = Visualizer(self.config.visualization)
+        
+        # 加载鱼缸边界标定
+        calibrator = AquariumCalibrator(Path(self.config.calibration_path))
+        aquarium_bounds = calibrator.load_from_config()
+        if aquarium_bounds:
+            logger.info("已加载鱼缸边界标定数据")
+        else:
+            logger.warning("未找到鱼缸边界标定数据，运行标定工具进行标定")
+        
+        self.visualizer = Visualizer(self.config.visualization, aquarium_bounds)
         self._running = False
 
     def start(self) -> None:
