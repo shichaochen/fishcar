@@ -9,7 +9,12 @@
    source ~/fishcar-venv/bin/activate
    pip install -r /home/pi/fishcar/raspi/requirements.txt
    ```
-2. 将训练好的 YOLO 模型 `best.pt` 放置在 `/home/pi/fishcar/raspi/models/`。
+2. **准备 YOLO 模型**（二选一）：
+   - **选项A**：使用自定义模型 - 将训练好的 `best.pt` 放置在 `/home/pi/fishcar/raspi/models/`
+   - **选项B**：使用预训练模型 - 如果模型文件不存在，系统会自动使用 YOLOv8n 预训练模型（COCO 数据集，包含 fish 类别）
+     - 首次运行会自动下载模型（需要网络连接）
+     - 可以在配置文件中设置：`weights_path: "yolov8n.pt"` 或 `"yolov8s.pt"`
+   - 更多模型选项请参考：`docs/fish_detection_models.md`
 3. 配置串口与摄像头参数，修改 `raspi/config/default.yaml`。
 4. **（可选）运行鱼缸边界标定工具**：
    ```bash

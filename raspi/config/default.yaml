@@ -10,10 +10,14 @@ camera:
 
 # YOLO 模型与推理
 detector:
+  # 模型路径：如果文件不存在，会自动使用 YOLOv8n 预训练模型（COCO 数据集，包含 fish 类别）
+  # 可以使用以下选项：
+  # 1. 自定义模型: "/home/pi/fishcar/raspi/models/best.pt"
+  # 2. 预训练模型: "yolov8n.pt" (nano, 最快) 或 "yolov8s.pt" (small, 更准确)
   weights_path: "/home/pi/fishcar/raspi/models/best.pt"
   conf_threshold: 0.5
   iou_threshold: 0.45
-  classes: null  # 单目标时保持 null
+  classes: null  # 单目标时保持 null。使用 COCO 预训练模型时，fish 类别 ID 是 15
   max_detections: 1
   smoothing:
     enabled: true
