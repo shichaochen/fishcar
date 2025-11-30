@@ -13,13 +13,32 @@
 3. 配置串口与摄像头参数，修改 `raspi/config/default.yaml`。
 4. **（可选）运行鱼缸边界标定工具**：
    ```bash
+   # 方法1：使用启动脚本（推荐）
+   cd ~/fishcar/raspi
+   bash calibrate.sh
+   
+   # 方法2：使用模块方式
+   cd ~/fishcar
+   source ~/fishcar-venv/bin/activate
    python -m raspi.src.calibrate_aquarium
    ```
    在摄像头画面上点击四个角点（左上、右上、右下、左下），按 SPACE 确认保存。
    标定后会在调试画面中显示鱼缸边界和鱼的相对坐标。
 5. 运行主程序：
    ```bash
-   python /home/pi/fishcar/raspi/src/main.py
+   # 方法1：使用启动脚本（推荐）
+   cd ~/fishcar/raspi
+   bash run.sh
+   
+   # 方法2：使用模块方式
+   cd ~/fishcar
+   source ~/fishcar-venv/bin/activate
+   python -m raspi.src.main
+   
+   # 方法3：直接运行（已修复导入问题）
+   cd ~/fishcar/raspi
+   source ~/fishcar-venv/bin/activate
+   python src/main.py
    ```
 
 ## 目录说明
@@ -38,7 +57,9 @@
 
 系统支持在调试画面中显示鱼缸边界，并实时显示鱼相对于鱼缸边界的归一化坐标（0-1范围）。
 
-- **标定工具**：`python -m raspi.src.calibrate_aquarium`
+- **标定工具**：
+  - 使用启动脚本：`bash ~/fishcar/raspi/calibrate.sh`
+  - 或模块方式：`python -m raspi.src.calibrate_aquarium`
 - **详细说明**：参考 `docs/aquarium_calibration.md`
 - **显示效果**：
   - 黄色线条绘制鱼缸边界

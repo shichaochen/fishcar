@@ -16,9 +16,9 @@ try:
     from .config_loader import load_config
 except ImportError:
     # 如果作为独立脚本运行
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
+    _script_dir = Path(__file__).parent
+    _project_dir = _script_dir.parent
+    sys.path.insert(0, str(_project_dir))
     from src.aquarium_calibration import AquariumCalibrator
     from src.camera import CameraStream
     from src.config_loader import load_config

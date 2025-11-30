@@ -6,15 +6,31 @@ from pathlib import Path
 
 from loguru import logger
 
-from .aquarium_calibration import AquariumBounds, AquariumCalibrator
-from .camera import CameraStream
-from .config_loader import load_config
-from .detector import FishDetector
-from .logging_utils import setup_logging
-from .motion_mapping import MecanumMapper
-from .serial_comm import SerialBridge
-from .safety import SafetyManager
-from .visualizer import Visualizer
+# 支持直接运行和模块导入两种方式
+try:
+    from .aquarium_calibration import AquariumBounds, AquariumCalibrator
+    from .camera import CameraStream
+    from .config_loader import load_config
+    from .detector import FishDetector
+    from .logging_utils import setup_logging
+    from .motion_mapping import MecanumMapper
+    from .serial_comm import SerialBridge
+    from .safety import SafetyManager
+    from .visualizer import Visualizer
+except ImportError:
+    # 如果相对导入失败，尝试绝对导入（直接运行脚本时）
+    import os
+    # 添加父目录到路径
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from src.aquarium_calibration import AquariumBounds, AquariumCalibrator
+    from src.camera import CameraStream
+    from src.config_loader import load_config
+    from src.detector import FishDetector
+    from src.logging_utils import setup_logging
+    from src.motion_mapping import MecanumMapper
+    from src.serial_comm import SerialBridge
+    from src.safety import SafetyManager
+    from src.visualizer import Visualizer
 
 
 class Application:
