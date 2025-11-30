@@ -10,9 +10,34 @@
 
 ## 快速开始
 
-1. 按 `docs/setup_guide.md` 准备硬件与环境。
-2. 在 Raspberry Pi 端安装依赖并运行 `raspi/src/main.py`。
-3. 将 `arduino/fishcar.ino` 烧录至 Arduino，按章节布线、调试。
+### Raspberry Pi 安装
 
-更多细节请参考各子目录内的说明文件。
+**推荐方式（使用安装脚本）**：
+```bash
+cd ~
+git clone https://github.com/shichaochen/fishcar.git
+cd fishcar
+chmod +x raspi/install.sh
+bash raspi/install.sh
+```
+
+详细安装步骤请参考：[安装指南](docs/installation_guide.md)
+
+### Arduino 固件
+
+1. 打开 `arduino/fishcar.ino` 并烧录到 Arduino
+2. 按照 `arduino/README.md` 完成硬件接线
+3. 使用串口监视器测试指令格式：`V <vx> <vy> <omega>`
+
+### 运行程序
+
+```bash
+source ~/fishcar-venv/bin/activate
+python ~/fishcar/src/main.py
+```
+
+更多细节请参考：
+- [系统概览](docs/system_overview.md)
+- [搭建指南](docs/setup_guide.md)
+- [安装指南](docs/installation_guide.md)
 
