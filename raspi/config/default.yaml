@@ -48,6 +48,14 @@ visualization:
   show_fps: true
   show_aquarium_bounds: true  # 显示鱼缸边界
   show_relative_coords: true  # 显示相对坐标
+  show_trajectory: true  # 显示小车移动轨迹
+
+# 轨迹记录
+trajectory:
+  enabled: true  # 启用轨迹记录
+  max_points: 1000  # 最大记录点数
+  sample_interval: 0.1  # 采样间隔（秒）
+  save_path: "/home/pi/fishcar/raspi/logs/trajectory.json"  # 保存路径（null 则不保存）
 
 # 标定文件路径
 calibration_path: "/home/pi/fishcar/raspi/config/calibration.json"

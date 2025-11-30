@@ -56,6 +56,15 @@ class VisualizationConfig:
     show_fps: bool
     show_aquarium_bounds: bool
     show_relative_coords: bool
+    show_trajectory: bool
+
+
+@dataclass(frozen=True)
+class TrajectoryConfig:
+    enabled: bool
+    max_points: int
+    sample_interval: float
+    save_path: str | None
 
 
 @dataclass(frozen=True)
@@ -73,6 +82,7 @@ class AppConfig:
     visualization: VisualizationConfig
     logging: LoggingConfig
     calibration_path: str
+    trajectory: TrajectoryConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -93,6 +103,16 @@ def load_config(path: Path) -> AppConfig:
         show_fps=viz_raw.get("show_fps", True),
         show_aquarium_bounds=viz_raw.get("show_aquarium_bounds", True),
         show_relative_coords=viz_raw.get("show_relative_coords", True),
+        show_trajectory=viz_raw.get("show_trajectory", True),
+    )
+    
+    # 轨迹记录配置
+    traj_raw = raw.get("trajectory", {})
+    trajectory = TrajectoryConfig(
+        enabled=traj_raw.get("enabled", True),
+        max_points=traj_raw.get("max_points", 1000),
+        sample_interval=traj_raw.get("sample_interval", 0.1),
+        save_path=traj_raw.get("save_path"),
     )
     
     logging = LoggingConfig(**raw["logging"])
@@ -106,5 +126,6 @@ def load_config(path: Path) -> AppConfig:
         visualization=visualization,
         logging=logging,
         calibration_path=calibration_path,
+        trajectory=trajectory,
     )
 

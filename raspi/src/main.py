@@ -16,6 +16,7 @@ try:
     from .motion_mapping import MecanumMapper
     from .serial_comm import SerialBridge
     from .safety import SafetyManager
+    from .trajectory_recorder import TrajectoryRecorder
     from .visualizer import Visualizer
 except ImportError:
     # 如果相对导入失败，尝试绝对导入（直接运行脚本时）
@@ -30,6 +31,7 @@ except ImportError:
     from src.motion_mapping import MecanumMapper
     from src.serial_comm import SerialBridge
     from src.safety import SafetyManager
+    from src.trajectory_recorder import TrajectoryRecorder
     from src.visualizer import Visualizer
 
 
@@ -51,7 +53,21 @@ class Application:
         else:
             logger.warning("未找到鱼缸边界标定数据，运行标定工具进行标定")
         
-        self.visualizer = Visualizer(self.config.visualization, aquarium_bounds)
+        # 初始化轨迹记录器
+        trajectory_recorder = None
+        if self.config.trajectory.enabled:
+            save_path = Path(self.config.trajectory.save_path) if self.config.trajectory.save_path else None
+            trajectory_recorder = TrajectoryRecorder(
+                max_points=self.config.trajectory.max_points,
+                sample_interval=self.config.trajectory.sample_interval,
+                save_path=save_path,
+            )
+            logger.info("轨迹记录已启用 (max_points={}, interval={}s)", 
+                        self.config.trajectory.max_points, 
+                        self.config.trajectory.sample_interval)
+        
+        self.trajectory_recorder = trajectory_recorder
+        self.visualizer = Visualizer(self.config.visualization, aquarium_bounds, trajectory_recorder)
         self._running = False
 
     def start(self) -> None:
@@ -66,6 +82,12 @@ class Application:
             return
         logger.info("正在关闭系统")
         self._running = False
+        
+        # 保存轨迹
+        if self.trajectory_recorder and self.trajectory_recorder.points:
+            logger.info("保存轨迹数据 ({} 个点)", len(self.trajectory_recorder.points))
+            self.trajectory_recorder.save()
+        
         self.serial.stop()
         self.camera.close()
         self.visualizer.close()
@@ -84,6 +106,10 @@ class Application:
             mapped = self.mapper.calculate(result)
             safe_vector = self.safety.apply(mapped, self.serial.read_status())
             self.serial.send_vector(safe_vector)
+            
+            # 更新轨迹记录
+            if self.trajectory_recorder:
+                self.trajectory_recorder.update(safe_vector)
 
             now = time.monotonic()
             if (

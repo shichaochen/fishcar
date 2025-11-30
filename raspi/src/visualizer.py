@@ -10,12 +10,19 @@ from .aquarium_calibration import AquariumBounds
 from .config_loader import VisualizationConfig
 from .detector import DetectionResult
 from .motion_mapping import MotionVector
+from .trajectory_recorder import TrajectoryRecorder
 
 
 class Visualizer:
-    def __init__(self, config: VisualizationConfig, aquarium_bounds: Optional[AquariumBounds] = None) -> None:
+    def __init__(
+        self,
+        config: VisualizationConfig,
+        aquarium_bounds: Optional[AquariumBounds] = None,
+        trajectory_recorder: Optional[TrajectoryRecorder] = None,
+    ) -> None:
         self.config = config
         self.aquarium_bounds = aquarium_bounds
+        self.trajectory_recorder = trajectory_recorder
         self._last_time = time.time()
         self._fps = 0.0
 
@@ -24,6 +31,10 @@ class Visualizer:
             return
 
         display = frame.copy()
+        
+        # 绘制小车轨迹
+        if self.trajectory_recorder and self.config.show_trajectory:
+            self._draw_trajectory(display)
         
         # 绘制鱼缸边界
         if self.config.show_aquarium_bounds and self.aquarium_bounds:
@@ -85,6 +96,62 @@ class Visualizer:
         except cv2.error as exc:
             logger.error("显示窗口失败: {}", exc)
 
+    def _draw_trajectory(self, display) -> None:
+        """在画面上绘制小车轨迹"""
+        if not self.trajectory_recorder:
+            return
+        
+        points = self.trajectory_recorder.get_recent_points(500)  # 最多显示最近500个点
+        if len(points) < 2:
+            return
+        
+        h, w = display.shape[:2]
+        
+        # 获取轨迹边界
+        min_x, min_y, max_x, max_y = self.trajectory_recorder.get_bounds()
+        if max_x == min_x:
+            max_x = min_x + 0.1
+        if max_y == min_y:
+            max_y = min_y + 0.1
+        
+        # 将归一化坐标转换为像素坐标
+        def norm_to_pixel(nx: float, ny: float) -> tuple[int, int]:
+            # 归一化坐标范围通常是 -1 到 1，映射到画面中心区域
+            # 留出边距
+            margin = 50
+            px = int((nx + 1) / 2 * (w - 2 * margin) + margin)
+            py = int((ny + 1) / 2 * (h - 2 * margin) + margin)
+            return (px, py)
+        
+        # 绘制轨迹线（渐变色，越新越亮）
+        for i in range(len(points) - 1):
+            p1 = points[i]
+            p2 = points[i + 1]
+            
+            # 根据时间计算颜色（越新越亮）
+            alpha = i / len(points)
+            color_intensity = int(255 * (1 - alpha * 0.5))  # 从255到127
+            
+            pt1 = norm_to_pixel(p1.x, p1.y)
+            pt2 = norm_to_pixel(p2.x, p2.y)
+            
+            # 只绘制激活的点
+            if p1.active and p2.active:
+                cv2.line(display, pt1, pt2, (0, color_intensity, 255 - color_intensity), 2)
+        
+        # 绘制当前位置
+        if points:
+            last = points[-1]
+            if last.active:
+                current_pos = norm_to_pixel(last.x, last.y)
+                cv2.circle(display, current_pos, 6, (0, 255, 0), -1)
+                cv2.circle(display, current_pos, 8, (0, 255, 0), 2)
+        
+        # 显示轨迹信息
+        info_text = f"Trajectory: {len(points)} points"
+        cv2.putText(display, info_text, (w - 200, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    
     def close(self) -> None:
         if self.config.enabled:
             cv2.destroyAllWindows()
