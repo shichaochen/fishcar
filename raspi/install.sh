@@ -23,13 +23,55 @@ echo "项目目录: $PROJECT_DIR"
 echo "安装目录: $INSTALL_DIR"
 echo ""
 
-# 1. 更新系统
+# 1. 更新系统（可选，如果遇到锁定可以跳过）
 echo "[1/7] 更新系统包..."
-sudo apt update
-sudo apt upgrade -y
+SKIP_UPDATE=false
+if [ "$1" == "--skip-update" ]; then
+    SKIP_UPDATE=true
+    echo "跳过系统更新（使用 --skip-update 参数）"
+fi
+
+if [ "$SKIP_UPDATE" = false ]; then
+    # 检查 apt 是否被锁定
+    if sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; then
+        echo "⚠️  警告: apt 正在被其他进程使用"
+        echo "正在等待 apt 解锁（最多等待 60 秒）..."
+        timeout=60
+        while [ $timeout -gt 0 ] && (sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1); do
+            sleep 1
+            timeout=$((timeout - 1))
+            echo -n "."
+        done
+        echo ""
+        if [ $timeout -eq 0 ]; then
+            echo "⚠️  apt 仍然被锁定，跳过系统更新步骤"
+            echo "提示: 可以稍后手动运行 'sudo apt update && sudo apt upgrade -y'"
+            SKIP_UPDATE=true
+        fi
+    fi
+    
+    if [ "$SKIP_UPDATE" = false ]; then
+        sudo apt update || {
+            echo "⚠️  更新失败，继续安装其他组件..."
+        }
+        sudo apt upgrade -y || {
+            echo "⚠️  升级失败，继续安装其他组件..."
+        }
+    fi
+fi
 
 # 2. 安装系统依赖
 echo "[2/7] 安装系统依赖..."
+# 检查并等待 apt 解锁
+if sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; then
+    echo "等待 apt 解锁..."
+    timeout=30
+    while [ $timeout -gt 0 ] && (sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1); do
+        sleep 1
+        timeout=$((timeout - 1))
+    done
+fi
+
 sudo apt install -y \
     python3 \
     python3-venv \
@@ -40,7 +82,10 @@ sudo apt install -y \
     git \
     screen \
     v4l-utils \
-    usbutils
+    usbutils || {
+    echo "⚠️  部分依赖安装失败，请检查错误信息"
+    echo "可以稍后手动运行: sudo apt install -y python3 python3-venv python3-dev python3-pip libopencv-dev libopencv-contrib-dev git screen v4l-utils usbutils"
+}
 
 # 3. 将用户添加到 dialout 组（串口权限）
 echo "[3/7] 配置串口权限..."
