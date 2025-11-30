@@ -26,8 +26,9 @@ bash raspi/install.sh
 ### Arduino 固件
 
 1. 打开 `arduino/fishcar.ino` 并烧录到 Arduino
-2. 按照 `arduino/README.md` 完成硬件接线
-3. 使用串口监视器测试指令格式：`V <vx> <vy> <omega>`
+2. **硬件连接**：详细连接方法请参考 [硬件连接指南](docs/hardware_connection.md)
+3. 按照 `arduino/README.md` 完成硬件接线
+4. 使用串口监视器测试指令格式：`V <vx> <vy> <omega>`
 
 ### 运行程序
 
@@ -40,4 +41,6 @@ python ~/fishcar/src/main.py
 - [系统概览](docs/system_overview.md)
 - [搭建指南](docs/setup_guide.md)
 - [安装指南](docs/installation_guide.md)
+- [硬件连接指南](docs/hardware_connection.md) - **Arduino 与树莓派连接方法**
+- [鱼缸标定指南](docs/aquarium_calibration.md)
 
