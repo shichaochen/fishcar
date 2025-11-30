@@ -124,18 +124,47 @@ class Application:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="FishCar Raspberry Pi 控制程序")
+    
+    # 自动检测配置文件路径（相对于脚本位置）
+    script_dir = Path(__file__).parent
+    # 尝试多个可能的路径
+    possible_config_paths = [
+        script_dir.parent / "config" / "default.yaml",  # raspi/config/default.yaml
+        script_dir.parent.parent / "raspi" / "config" / "default.yaml",  # fishcar/raspi/config/default.yaml
+        Path("/home/pi/fishcar/raspi/config/default.yaml"),  # 绝对路径
+        Path.home() / "fishcar" / "raspi" / "config" / "default.yaml",  # ~/fishcar/raspi/config/default.yaml
+    ]
+    
+    default_config = None
+    for path in possible_config_paths:
+        if path.exists():
+            default_config = path
+            break
+    
+    if default_config is None:
+        # 如果都找不到，使用第一个作为默认值（会报错但提示更清楚）
+        default_config = possible_config_paths[0]
+    
     parser.add_argument(
         "-c",
         "--config",
         type=Path,
-        default=Path("/home/pi/fishcar/raspi/config/default.yaml"),
-        help="配置文件路径",
+        default=default_config,
+        help=f"配置文件路径（默认: {default_config}）",
     )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    
+    # 检查配置文件是否存在
+    if not args.config.exists():
+        logger.error("配置文件不存在: {}", args.config)
+        logger.error("请确保配置文件存在，或使用 -c 参数指定配置文件路径")
+        logger.error("示例: python main.py -c /path/to/config.yaml")
+        sys.exit(1)
+    
     app = Application(args.config)
 
     def handle_exit(signum: int, frame) -> None:  # type: ignore[override]
