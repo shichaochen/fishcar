@@ -24,26 +24,45 @@ class DetectionResult:
 class FishDetector:
     def __init__(self, config: DetectorConfig) -> None:
         self.config = config
-        weights_path = Path(config.weights_path)
+        weights_path_str = config.weights_path
         
-        # 如果模型文件不存在，使用 COCO 预训练模型（包含 fish 类别）
-        if not weights_path.exists():
-            logger.warning(f"模型文件不存在: {weights_path}")
-            logger.info("使用 YOLOv8n 预训练模型（COCO 数据集，包含 fish 类别）")
-            logger.info("提示: COCO 数据集中 fish 的类别 ID 是 15")
-            # 使用 YOLOv8n (nano) 版本，适合树莓派
-            self.model = YOLO('yolov8n.pt')
-            # 如果配置中没有指定类别，自动设置为 fish (15)
-            if self.config.classes is None:
+        # 检查是否是预训练模型名称（如 yolov8n.pt）
+        is_pretrained = weights_path_str in ['yolov8n.pt', 'yolov8s.pt', 'yolov8m.pt', 'yolov8l.pt', 'yolov8x.pt']
+        
+        if is_pretrained:
+            # 直接使用预训练模型
+            logger.info(f"使用预训练模型: {weights_path_str}")
+            self.model = YOLO(weights_path_str)
+            self._filter_fish_only = (self.config.classes is None)
+            if self._filter_fish_only:
                 logger.info("自动设置检测类别为 fish (ID: 15)")
-                # 注意：这里不能直接修改 config，需要在检测时过滤
-                self._filter_fish_only = True
-            else:
-                self._filter_fish_only = False
         else:
-            self.model = YOLO(str(weights_path))
-            self._filter_fish_only = False
-            logger.info(f"已加载模型: {weights_path}")
+            # 检查文件是否存在
+            weights_path = Path(weights_path_str)
+            if not weights_path.exists():
+                logger.warning(f"模型文件不存在: {weights_path}")
+                logger.info("自动切换到 YOLOv8n 预训练模型（COCO 数据集，包含 fish 类别）")
+                logger.info("提示: COCO 数据集中 fish 的类别 ID 是 15")
+                # 使用 YOLOv8n (nano) 版本，适合树莓派
+                self.model = YOLO('yolov8n.pt')
+                # 如果配置中没有指定类别，自动设置为 fish (15)
+                if self.config.classes is None:
+                    logger.info("自动设置检测类别为 fish (ID: 15)")
+                    self._filter_fish_only = True
+                else:
+                    self._filter_fish_only = False
+            else:
+                try:
+                    self.model = YOLO(str(weights_path))
+                    self._filter_fish_only = False
+                    logger.info(f"已加载自定义模型: {weights_path}")
+                except Exception as e:
+                    logger.error(f"加载模型失败: {e}")
+                    logger.info("回退到 YOLOv8n 预训练模型")
+                    self.model = YOLO('yolov8n.pt')
+                    self._filter_fish_only = (self.config.classes is None)
+                    if self._filter_fish_only:
+                        logger.info("自动设置检测类别为 fish (ID: 15)")
         
         self.history: Deque[tuple[float, float]] = deque(maxlen=5)
 
