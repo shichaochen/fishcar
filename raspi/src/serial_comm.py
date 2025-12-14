@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import serial
 from loguru import logger
@@ -29,15 +30,36 @@ class SerialBridge:
         self._running = False
 
     def open(self) -> None:
-        logger.info("打开串口 {} @ {}", self.config.port, self.config.baudrate)
-        self._serial = serial.Serial(
-            self.config.port,
-            self.config.baudrate,
-            timeout=self.config.timeout,
-        )
-        self._running = True
-        self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
-        self._reader_thread.start()
+        port = self.config.port
+        
+        # 检查串口设备是否存在
+        if not Path(port).exists():
+            logger.error("串口设备不存在: {}", port)
+            logger.error("请检查：")
+            logger.error("1. Arduino 是否已连接到树莓派")
+            logger.error("2. 使用以下命令查找串口设备：")
+            logger.error("   ls -l /dev/ttyACM* /dev/ttyUSB*")
+            logger.error("3. 更新配置文件中的串口路径")
+            raise serial.SerialException(f"串口设备不存在: {port}")
+        
+        logger.info("打开串口 {} @ {}", port, self.config.baudrate)
+        try:
+            self._serial = serial.Serial(
+                port,
+                self.config.baudrate,
+                timeout=self.config.timeout,
+            )
+            self._running = True
+            self._reader_thread = threading.Thread(target=self._read_loop, daemon=True)
+            self._reader_thread.start()
+            logger.info("串口连接成功")
+        except serial.SerialException as e:
+            logger.error("串口打开失败: {}", e)
+            logger.error("可能的原因：")
+            logger.error("1. 串口被其他程序占用")
+            logger.error("2. 权限不足（需要将用户添加到 dialout 组）")
+            logger.error("3. 波特率不匹配")
+            raise
 
     def stop(self) -> None:
         self._running = False
