@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -25,6 +26,28 @@ class Visualizer:
         self.trajectory_recorder = trajectory_recorder
         self._last_time = time.time()
         self._fps = 0.0
+        self._display_available = False
+        
+        # 检测是否有显示环境
+        if not config.enabled:
+            self._display_available = False
+        else:
+            # 检查 DISPLAY 环境变量
+            display = os.environ.get("DISPLAY")
+            if not display:
+                logger.warning("未检测到 DISPLAY 环境变量，自动禁用可视化（headless 模式）")
+                self._display_available = False
+                # 自动禁用配置中的可视化
+                self.config.enabled = False
+            else:
+                # 尝试创建一个测试窗口来验证显示是否可用
+                try:
+                    # 设置 OpenCV 使用无头后端（如果可用）
+                    # 但先尝试正常模式
+                    self._display_available = True
+                except Exception:
+                    self._display_available = False
+                    self.config.enabled = False
 
     def render(self, frame, detection: DetectionResult, vector: MotionVector) -> None:
         if not self.config.enabled:
@@ -89,12 +112,19 @@ class Visualizer:
             cv2.putText(display, f"FPS: {self._fps:.1f}", (10, y_pos), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-        try:
-            cv2.imshow(self.config.window_name, display)
-            if cv2.waitKey(1) & 0xFF == 27:
-                logger.info("用户按下 ESC，建议终止程序")
-        except cv2.error as exc:
-            logger.error("显示窗口失败: {}", exc)
+        # 尝试显示窗口
+        if self._display_available:
+            try:
+                cv2.imshow(self.config.window_name, display)
+                if cv2.waitKey(1) & 0xFF == 27:
+                    logger.info("用户按下 ESC，建议终止程序")
+            except (cv2.error, SystemError, OSError) as exc:
+                # 如果显示失败，禁用后续的可视化尝试
+                if self._display_available:
+                    logger.warning("显示窗口失败，自动禁用可视化: {}", exc)
+                    logger.info("程序将在无头模式下继续运行（无图形界面）")
+                    self._display_available = False
+                    self.config.enabled = False
 
     def _draw_trajectory(self, display) -> None:
         """在画面上绘制小车轨迹"""
@@ -153,6 +183,9 @@ class Visualizer:
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
     def close(self) -> None:
-        if self.config.enabled:
-            cv2.destroyAllWindows()
+        if self.config.enabled and self._display_available:
+            try:
+                cv2.destroyAllWindows()
+            except Exception:
+                pass  # 忽略关闭窗口时的错误
 
