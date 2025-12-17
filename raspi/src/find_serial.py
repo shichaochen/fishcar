@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """
 查找可用的串口设备
-使用方法: python find_serial.py
+使用方法: 
+  - python find_serial.py (从 raspi/src 目录)
+  - python -m src.find_serial (从 raspi 目录)
+  - python -m raspi.src.find_serial (从 fishcar 目录)
 """
+import sys
+from pathlib import Path
+
+# 添加项目路径以便导入
+_script_dir = Path(__file__).parent
+_project_dir = _script_dir.parent.parent
+if str(_project_dir) not in sys.path:
+    sys.path.insert(0, str(_project_dir))
+
 import serial.tools.list_ports
 from pathlib import Path
 

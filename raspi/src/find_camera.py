@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 """
 查找可用的 USB 摄像头设备
-使用方法: python find_camera.py
+使用方法: 
+  - python find_camera.py (从 raspi/src 目录)
+  - python -m src.find_camera (从 raspi 目录)
+  - python -m raspi.src.find_camera (从 fishcar 目录)
 """
-import cv2
+import sys
 from pathlib import Path
+
+# 添加项目路径以便导入
+_script_dir = Path(__file__).parent
+_project_dir = _script_dir.parent.parent
+if str(_project_dir) not in sys.path:
+    sys.path.insert(0, str(_project_dir))
+
+import cv2
 import subprocess
 
 
