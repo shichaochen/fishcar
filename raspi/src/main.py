@@ -1,8 +1,13 @@
 import argparse
+import os
 import signal
 import sys
 import time
 from pathlib import Path
+
+# 在导入 OpenCV 相关模块之前设置环境变量（避免 headless 模式下的 Qt 插件错误）
+if not os.environ.get("DISPLAY"):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from loguru import logger
 
