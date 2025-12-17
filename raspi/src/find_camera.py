@@ -6,8 +6,13 @@
   - python -m src.find_camera (从 raspi 目录)
   - python -m raspi.src.find_camera (从 fishcar 目录)
 """
+import os
 import sys
 from pathlib import Path
+
+# 在导入 cv2 之前设置环境变量
+if not os.environ.get("DISPLAY"):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 # 添加项目路径以便导入
 _script_dir = Path(__file__).parent

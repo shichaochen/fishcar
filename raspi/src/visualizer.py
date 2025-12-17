@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# 必须在导入 cv2 之前初始化
+from . import opencv_init  # noqa: F401
+
 import os
 import time
 from pathlib import Path

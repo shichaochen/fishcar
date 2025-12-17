@@ -4,6 +4,15 @@
 """
 from __future__ import annotations
 
+# 必须在导入 cv2 之前初始化
+try:
+    from . import opencv_init  # noqa: F401
+except ImportError:
+    # 如果作为独立模块导入，直接设置环境变量
+    import os
+    if not os.environ.get("DISPLAY"):
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
 import json
 from dataclasses import dataclass
 from pathlib import Path

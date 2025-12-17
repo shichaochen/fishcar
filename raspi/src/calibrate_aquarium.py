@@ -4,8 +4,13 @@
 使用方法: python calibrate_aquarium.py [--config config.yaml]
 """
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# 在导入 cv2 之前设置环境变量
+if not os.environ.get("DISPLAY"):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 import cv2
 from loguru import logger

@@ -170,3 +170,5 @@ class TrajectoryRecorder:
         
         return (min(xs), min(ys), max(xs), max(ys))
 
+
+

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# 必须在导入 cv2 之前初始化
+from . import opencv_init  # noqa: F401
+
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
