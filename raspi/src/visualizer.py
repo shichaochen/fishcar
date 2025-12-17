@@ -64,24 +64,8 @@ class Visualizer:
         # 如果可视化被禁用，直接返回（不进行任何处理）
         if not self.config.enabled:
             return
-        
-        # 如果显示不可用（headless 模式），只进行图像处理用于保存，不尝试显示
-        if not self._display_available:
-            # Headless 模式：只保存图像，不进行绘制（节省 CPU）
-            current_time = time.time()
-            if current_time - self._last_save_time >= self._save_interval:
-                try:
-                    # 在 headless 模式下，可以选择保存原始帧或带标注的帧
-                    # 这里保存带标注的帧需要先绘制，但为了节省资源，我们可以只保存原始帧
-                    # 或者可以选择性地绘制关键信息
-                    cv2.imwrite(str(self._save_path), frame)
-                    self._last_save_time = current_time
-                    logger.debug("已保存检测图像到: {}", self._save_path)
-                except Exception as exc:
-                    logger.warning("保存图像失败: {}", exc)
-            return
 
-        # 有显示环境时才进行绘制
+        # 创建显示图像（无论是否有显示环境，都需要绘制用于保存）
         display = frame.copy()
         
         # 绘制小车轨迹
@@ -141,19 +125,31 @@ class Visualizer:
             cv2.putText(display, f"FPS: {self._fps:.1f}", (10, y_pos), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-        # 尝试显示窗口（只在有显示环境时）
-        try:
-            cv2.imshow(self.config.window_name, display)
-            if cv2.waitKey(1) & 0xFF == 27:
-                logger.info("用户按下 ESC，建议终止程序")
-        except (cv2.error, SystemError, OSError) as exc:
-            # 如果显示失败，禁用后续的可视化尝试
-            if self._display_available:
-                logger.warning("显示窗口失败，自动禁用可视化: {}", exc)
-                logger.info("程序将在无头模式下继续运行（无图形界面）")
-                self._display_available = False
-                self.config.enabled = False
-                self._save_path.parent.mkdir(parents=True, exist_ok=True)
+        # 尝试显示窗口或保存图像
+        if self._display_available:
+            # 有显示环境：尝试显示窗口
+            try:
+                cv2.imshow(self.config.window_name, display)
+                if cv2.waitKey(1) & 0xFF == 27:
+                    logger.info("用户按下 ESC，建议终止程序")
+            except (cv2.error, SystemError, OSError) as exc:
+                # 如果显示失败，禁用后续的可视化尝试
+                if self._display_available:
+                    logger.warning("显示窗口失败，自动禁用可视化: {}", exc)
+                    logger.info("程序将在无头模式下继续运行（无图形界面）")
+                    self._display_available = False
+                    self.config.enabled = False
+                    self._save_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Headless 模式：定期保存带标注的图像
+            current_time = time.time()
+            if current_time - self._last_save_time >= self._save_interval:
+                try:
+                    cv2.imwrite(str(self._save_path), display)
+                    self._last_save_time = current_time
+                    logger.debug("已保存检测图像到: {}", self._save_path)
+                except Exception as exc:
+                    logger.warning("保存图像失败: {}", exc)
 
     def _draw_trajectory(self, display) -> None:
         """在画面上绘制小车轨迹"""
