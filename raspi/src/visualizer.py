@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 import cv2
@@ -27,6 +28,9 @@ class Visualizer:
         self._last_time = time.time()
         self._fps = 0.0
         self._display_available = False
+        self._last_save_time = 0.0
+        self._save_interval = 2.0  # 每2秒保存一次图像（headless 模式）
+        self._save_path = Path.home() / "fishcar" / "raspi" / "logs" / "latest_detection.jpg"
         
         # 检测是否有显示环境
         if not config.enabled:
@@ -36,9 +40,12 @@ class Visualizer:
             display = os.environ.get("DISPLAY")
             if not display:
                 logger.warning("未检测到 DISPLAY 环境变量，自动禁用可视化（headless 模式）")
+                logger.info("将在 headless 模式下定期保存检测图像到: {}", self._save_path)
                 self._display_available = False
                 # 自动禁用配置中的可视化
                 self.config.enabled = False
+                # 确保保存目录存在
+                self._save_path.parent.mkdir(parents=True, exist_ok=True)
             else:
                 # 尝试创建一个测试窗口来验证显示是否可用
                 try:
@@ -48,6 +55,7 @@ class Visualizer:
                 except Exception:
                     self._display_available = False
                     self.config.enabled = False
+                    self._save_path.parent.mkdir(parents=True, exist_ok=True)
 
     def render(self, frame, detection: DetectionResult, vector: MotionVector) -> None:
         if not self.config.enabled:
@@ -112,7 +120,7 @@ class Visualizer:
             cv2.putText(display, f"FPS: {self._fps:.1f}", (10, y_pos), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-        # 尝试显示窗口
+        # 尝试显示窗口或保存图像（headless 模式）
         if self._display_available:
             try:
                 cv2.imshow(self.config.window_name, display)
@@ -125,6 +133,17 @@ class Visualizer:
                     logger.info("程序将在无头模式下继续运行（无图形界面）")
                     self._display_available = False
                     self.config.enabled = False
+                    self._save_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Headless 模式：定期保存图像
+            current_time = time.time()
+            if current_time - self._last_save_time >= self._save_interval:
+                try:
+                    cv2.imwrite(str(self._save_path), display)
+                    self._last_save_time = current_time
+                    logger.debug("已保存检测图像到: {}", self._save_path)
+                except Exception as exc:
+                    logger.warning("保存图像失败: {}", exc)
 
     def _draw_trajectory(self, display) -> None:
         """在画面上绘制小车轨迹"""
