@@ -13,6 +13,8 @@ from loguru import logger
 
 # 支持直接运行和模块导入两种方式
 try:
+    # 首先导入 opencv_init 以确保环境变量在导入任何 cv2 相关模块之前设置
+    from . import opencv_init  # noqa: F401
     from .aquarium_calibration import AquariumBounds, AquariumCalibrator
     from .camera import CameraStream
     from .config_loader import load_config
@@ -25,9 +27,10 @@ try:
     from .visualizer import Visualizer
 except ImportError:
     # 如果相对导入失败，尝试绝对导入（直接运行脚本时）
-    import os
     # 添加父目录到路径
     sys.path.insert(0, str(Path(__file__).parent.parent))
+    # 首先导入 opencv_init
+    from src import opencv_init  # noqa: F401
     from src.aquarium_calibration import AquariumBounds, AquariumCalibrator
     from src.camera import CameraStream
     from src.config_loader import load_config
