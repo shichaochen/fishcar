@@ -18,6 +18,14 @@ source "$VENV_DIR/bin/activate"
 # 切换到项目目录
 cd "$SCRIPT_DIR"
 
+# 如果未设置 DISPLAY，使用无头模式（避免 OpenCV Qt 插件错误）
+if [ -z "$DISPLAY" ]; then
+    export QT_QPA_PLATFORM=offscreen
+    echo "检测到无图形界面环境，使用无头模式运行"
+fi
+
 # 使用模块方式运行（推荐）
 python -m src.main "$@"
+
+
 
