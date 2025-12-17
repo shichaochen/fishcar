@@ -19,6 +19,14 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 INSTALL_DIR="$HOME/fishcar"
 
+# 如果项目目录就是安装目录（从 GitHub 克隆的情况），使用项目目录
+if [ "$PROJECT_DIR" = "$HOME/fishcar" ] || [ -d "$PROJECT_DIR/.git" ]; then
+    INSTALL_DIR="$PROJECT_DIR/raspi"
+    echo "检测到 Git 仓库，使用项目目录: $PROJECT_DIR"
+else
+    INSTALL_DIR="$HOME/fishcar"
+fi
+
 echo "项目目录: $PROJECT_DIR"
 echo "安装目录: $INSTALL_DIR"
 echo ""
@@ -94,14 +102,31 @@ echo "已将用户 $USER 添加到 dialout 组（需要重新登录生效）"
 
 # 4. 复制项目文件到安装目录
 echo "[4/7] 复制项目文件..."
-if [ -d "$INSTALL_DIR" ]; then
-    echo "目录 $INSTALL_DIR 已存在，备份为 ${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
-    mv "$INSTALL_DIR" "${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+# 检查是否是从 GitHub 克隆的（已经有完整结构）
+if [ -d "$PROJECT_DIR/.git" ] && [ -d "$PROJECT_DIR/raspi" ]; then
+    echo "检测到 Git 仓库，项目文件已在正确位置"
+    echo "跳过文件复制步骤"
+    # 确保安装目录指向项目目录
+    if [ "$PROJECT_DIR" != "$INSTALL_DIR" ]; then
+        echo "提示: 项目在 $PROJECT_DIR，安装目录设置为 $INSTALL_DIR"
+        echo "如果要从其他位置运行，请确保路径正确"
+    fi
+else
+    # 如果不是 Git 仓库，执行复制
+    if [ -d "$INSTALL_DIR" ]; then
+        echo "目录 $INSTALL_DIR 已存在，备份为 ${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+        mv "$INSTALL_DIR" "${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    if [ -d "$PROJECT_DIR/raspi" ]; then
+        mkdir -p "$INSTALL_DIR"
+        cp -r "$PROJECT_DIR/raspi"/* "$INSTALL_DIR/"
+        echo "文件已复制到 $INSTALL_DIR"
+    else
+        echo "⚠️  警告: 未找到源目录 $PROJECT_DIR/raspi"
+        echo "如果项目已克隆到 $INSTALL_DIR，请直接使用该目录"
+    fi
 fi
-
-mkdir -p "$INSTALL_DIR"
-cp -r "$PROJECT_DIR/raspi"/* "$INSTALL_DIR/"
-echo "文件已复制到 $INSTALL_DIR"
 
 # 5. 创建虚拟环境
 echo "[5/7] 创建 Python 虚拟环境..."
@@ -126,23 +151,41 @@ pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorc
 
 # 安装其他依赖
 echo "安装其他依赖..."
-pip install -r "$INSTALL_DIR/requirements.txt"
+REQUIREMENTS_FILE="$INSTALL_DIR/requirements.txt"
+if [ ! -f "$REQUIREMENTS_FILE" ]; then
+    # 尝试在项目目录中查找
+    REQUIREMENTS_FILE="$PROJECT_DIR/raspi/requirements.txt"
+fi
+if [ -f "$REQUIREMENTS_FILE" ]; then
+    pip install -r "$REQUIREMENTS_FILE"
+else
+    echo "⚠️  警告: 未找到 requirements.txt，手动安装依赖"
+    pip install ultralytics opencv-python numpy scipy pyserial pyyaml loguru
+fi
 
 # 7. 创建必要的目录和文件
 echo "[7/7] 创建必要的目录..."
-mkdir -p "$INSTALL_DIR/models"
-mkdir -p "$INSTALL_DIR/logs"
-mkdir -p "$INSTALL_DIR/config"
+# 确定实际的 raspi 目录
+if [ -d "$PROJECT_DIR/raspi" ]; then
+    RASPI_DIR="$PROJECT_DIR/raspi"
+else
+    RASPI_DIR="$INSTALL_DIR"
+fi
+
+mkdir -p "$RASPI_DIR/models"
+mkdir -p "$RASPI_DIR/logs"
+mkdir -p "$RASPI_DIR/config"
 
 # 检查模型文件
-if [ ! -f "$INSTALL_DIR/models/best.pt" ]; then
+if [ ! -f "$RASPI_DIR/models/best.pt" ]; then
     echo ""
     echo "⚠️  警告: 未找到模型文件 best.pt"
-    echo "请将训练好的 YOLO 模型文件复制到: $INSTALL_DIR/models/best.pt"
+    echo "请将训练好的 YOLO 模型文件复制到: $RASPI_DIR/models/best.pt"
+    echo "或使用预训练模型（在配置文件中设置 weights_path: \"yolov8n.pt\"）"
 fi
 
 # 检查配置文件
-if [ ! -f "$INSTALL_DIR/config/default.yaml" ]; then
+if [ ! -f "$RASPI_DIR/config/default.yaml" ]; then
     echo "⚠️  警告: 配置文件不存在，请检查安装"
 fi
 
@@ -153,23 +196,29 @@ echo "安装完成！"
 echo "=========================================="
 echo ""
 echo "下一步操作："
-echo "1. 将 YOLO 模型文件 best.pt 复制到: $INSTALL_DIR/models/"
-echo "2. 检查并修改配置文件: $INSTALL_DIR/config/default.yaml"
-echo "   - 串口设备路径 (默认: /dev/ttyACM0)"
-echo "   - 摄像头参数"
+echo "1. 将 YOLO 模型文件 best.pt 复制到: $RASPI_DIR/models/"
+echo "   或使用预训练模型（在配置文件中设置 weights_path: \"yolov8n.pt\"）"
+echo "2. 检查并修改配置文件: $RASPI_DIR/config/default.yaml"
+echo "   - 串口设备路径 (使用: python -m raspi.src.find_serial 查找)"
+echo "   - 摄像头参数 (使用: python -m raspi.src.find_camera 查找)"
 echo "   - 运动映射参数"
 echo ""
 echo "3. 重新登录以应用串口权限更改，或运行:"
 echo "   newgrp dialout"
 echo ""
 echo "4. 运行程序："
+echo "   cd $PROJECT_DIR/raspi"
+echo "   bash run.sh"
+echo ""
+echo "   或："
+echo "   cd $PROJECT_DIR"
 echo "   source $VENV_DIR/bin/activate"
-echo "   python $INSTALL_DIR/src/main.py"
+echo "   python -m raspi.src.main"
 echo ""
 echo "5. 如需后台运行，使用 screen："
 echo "   screen -S fishcar"
-echo "   source $VENV_DIR/bin/activate"
-echo "   python $INSTALL_DIR/src/main.py"
+echo "   cd $PROJECT_DIR/raspi"
+echo "   bash run.sh"
 echo "   (按 Ctrl+A 然后 D 退出 screen，使用 screen -r fishcar 重新连接)"
 echo ""
 
