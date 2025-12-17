@@ -38,7 +38,7 @@ motion_mapping:
 
 # 串口通信
 serial:
-  port: "/dev/ttyACM0"
+  port: "/dev/ttyUSB0"  # USB 转串口设备（CH340）
   baudrate: 9600
   timeout: 0.1
   heartbeat_interval: 0.0
