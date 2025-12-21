@@ -172,3 +172,5 @@ plt.show()
 - 检查目录权限
 - 确认程序正常退出（Ctrl+C 或 SIGTERM）
 
+
+

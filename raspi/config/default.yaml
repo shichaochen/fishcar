@@ -38,7 +38,7 @@ motion_mapping:
 
 # 串口通信
 serial:
-  port: "/dev/ttyUSB0"  # USB 转串口设备（CH340）
+  port: "/dev/ttyUSB0"  # USB转串口芯片（CH340/FT232）为 /dev/ttyUSB0，Arduino UNO/Nano 原生USB为 /dev/ttyACM0
   baudrate: 9600
   timeout: 0.1
   heartbeat_interval: 0.0

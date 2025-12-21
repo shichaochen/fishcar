@@ -101,3 +101,5 @@ calibration_path: "/home/pi/fishcar/raspi/config/calibration.json"  # 标定文�
 - 确保点击的四个点顺序正确
 - 检查摄像头是否移动过位置
 
+
+

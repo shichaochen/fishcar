@@ -21,3 +21,5 @@ cd "$SCRIPT_DIR"
 # 使用模块方式运行标定工具
 python -m src.calibrate_aquarium "$@"
 
+
+
