@@ -32,9 +32,25 @@ bash raspi/install.sh
 
 ### 运行程序
 
+**推荐方式（使用启动脚本）**：
 ```bash
+cd ~/fishcar/raspi
 source ~/fishcar-venv/bin/activate
-python ~/fishcar/src/main.py
+bash run.sh
+```
+
+**或者使用模块方式**：
+```bash
+cd ~/fishcar/raspi
+source ~/fishcar-venv/bin/activate
+python -m src.main
+```
+
+**或者直接运行**：
+```bash
+cd ~/fishcar
+source ~/fishcar-venv/bin/activate
+python ~/fishcar/raspi/src/main.py
 ```
 
 更多细节请参考：
