@@ -81,10 +81,25 @@ if [ -n "$LOCAL_CHANGES" ]; then
         echo "暂存本地修改..."
         git stash push -m "本地配置修改 $(date +%Y-%m-%d_%H:%M:%S)"
         
-        # 拉取更新
+        # 拉取更新（使用 fetch + merge，更可靠）
         echo ""
-        echo "正在拉取远程更新..."
-        git pull origin main
+        echo "正在获取远程更新..."
+        timeout 60 git fetch origin main || {
+            echo ""
+            echo "⚠️  获取远程更新超时或失败，可能原因："
+            echo "  1. 网络连接问题"
+            echo "  2. GitHub 连接慢"
+            echo ""
+            echo "建议："
+            echo "  1. 检查网络连接: ping github.com"
+            echo "  2. 尝试使用 HTTPS: git remote set-url origin https://github.com/shichaochen/fishcar.git"
+            echo "  3. 稍后重试"
+            git stash pop 2>/dev/null
+            exit 1
+        }
+        
+        echo "正在合并更新..."
+        git merge origin/main
         
         if [ $? -eq 0 ]; then
             echo ""
@@ -115,7 +130,14 @@ if [ -n "$LOCAL_CHANGES" ]; then
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             git stash push -m "本地修改 $(date +%Y-%m-%d_%H:%M:%S)"
-            git pull origin main
+            echo ""
+            echo "正在获取远程更新..."
+            timeout 60 git fetch origin main || {
+                echo "⚠️  获取更新超时，请检查网络连接"
+                git stash pop 2>/dev/null
+                exit 1
+            }
+            git merge origin/main
             if [ $? -eq 0 ]; then
                 echo ""
                 echo "✓ 代码更新成功！"
@@ -137,8 +159,15 @@ else
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo ""
-        echo "正在拉取远程更新..."
-        git pull origin main
+        echo "正在获取远程更新..."
+        timeout 60 git fetch origin main || {
+            echo ""
+            echo "⚠️  获取远程更新超时或失败"
+            echo "请检查网络连接或稍后重试"
+            exit 1
+        }
+        echo "正在合并更新..."
+        git merge origin/main
         
         if [ $? -eq 0 ]; then
             echo ""
