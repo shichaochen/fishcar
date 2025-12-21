@@ -19,50 +19,11 @@ source "$VENV_DIR/bin/activate"
 # 确保输出目录存在
 mkdir -p "$SCRIPT_DIR/logs"
 
-# 创建测试脚本
-cat > /tmp/test_camera_temp.py << 'EOF'
-import sys
-from pathlib import Path
+# 切换到 raspi 目录
+cd "$SCRIPT_DIR"
 
-# 添加项目路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from src.camera import CameraStream
-from src.config_loader import load_config
-import cv2
-
-config_path = Path("/home/pi/fishcar/raspi/config/default.yaml")
-config = load_config(config_path)
-
-print("正在打开摄像头...")
-camera = CameraStream(config.camera)
-camera.open()
-
-print("正在读取画面...")
-frame = None
-for i in range(10):
-    frame = camera.read()
-    if frame is not None:
-        break
-    print(f"  尝试 {i+1}/10...")
-
-if frame is None:
-    print("错误: 无法读取摄像头画面")
-    camera.close()
-    sys.exit(1)
-
-print(f"成功获取画面，尺寸: {frame.shape[1]}x{frame.shape[0]}")
-
-output_path = sys.argv[1] if len(sys.argv) > 1 else "/tmp/test_camera.jpg"
-cv2.imwrite(output_path, frame)
-print(f"图片已保存到: {output_path}")
-
-camera.close()
-print("摄像头已关闭")
-EOF
-
-# 运行测试
-python /tmp/test_camera_temp.py "$OUTPUT_IMAGE"
+# 使用模块方式运行（与 run.sh 相同的方式）
+python -m src.calibrate_aquarium --save-image "$OUTPUT_IMAGE"
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -84,6 +45,4 @@ else
     echo "3. 检查权限: groups | grep video"
 fi
 
-# 清理临时文件
-rm -f /tmp/test_camera_temp.py
 
