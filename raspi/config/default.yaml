@@ -1,8 +1,8 @@
 # 摄像头参数
 camera:
   device_index: 0
-  width: 1280
-  height: 720
+  width: 640
+  height: 480
   fps: 30
   flip_x: false
   flip_y: true  # 根据安装方向调整
@@ -33,8 +33,8 @@ motion_mapping:
   min_speed: 0.15
   invert_x: false
   invert_y: false
-  reference_width: 1280
-  reference_height: 720
+  reference_width: 640
+  reference_height: 480
 
 # 串口通信
 serial:
