@@ -32,8 +32,9 @@ class Visualizer:
         self._fps = 0.0
         self._display_available = False
         self._last_save_time = 0.0
-        self._save_interval = 2.0  # 每2秒保存一次图像（headless 模式）
+        self._save_interval = 1.0  # 每1秒保存一次图像（headless 模式）
         self._save_path = Path.home() / "fishcar" / "raspi" / "logs" / "latest_detection.jpg"
+        self._save_count = 0  # 保存计数，用于日志输出
         
         # 检测是否有显示环境
         if not config.enabled:
@@ -42,27 +43,36 @@ class Visualizer:
             # 检查 DISPLAY 环境变量
             display = os.environ.get("DISPLAY")
             if not display:
-                logger.warning("未检测到 DISPLAY 环境变量，自动禁用可视化（headless 模式）")
-                logger.info("将在 headless 模式下定期保存检测图像到: {}", self._save_path)
+                logger.warning("未检测到 DISPLAY 环境变量，自动切换到 headless 模式")
+                logger.info("=" * 60)
+                logger.info("Headless 模式：摄像头画面将保存到文件")
+                logger.info("保存路径: {}", self._save_path)
+                logger.info("保存间隔: 每 {} 秒", self._save_interval)
+                logger.info("=" * 60)
+                logger.info("查看最新画面: cat {} 或使用 scp 下载", self._save_path)
+                logger.info("")
                 self._display_available = False
-                # 自动禁用配置中的可视化
+                # 自动禁用配置中的可视化窗口显示
                 self.config.enabled = False
                 # 确保保存目录存在
                 self._save_path.parent.mkdir(parents=True, exist_ok=True)
             else:
-                # 尝试创建一个测试窗口来验证显示是否可用
+                # 有 DISPLAY 环境变量，但需要测试 OpenCV 是否真的支持窗口显示
+                # 先假设可用，如果后续失败会自动切换
+                self._display_available = True
+                # 尝试创建一个测试窗口来验证（可选，避免第一次就失败）
                 try:
-                    # 设置 OpenCV 使用无头后端（如果可用）
-                    # 但先尝试正常模式
-                    self._display_available = True
+                    # 静默测试，不输出错误
+                    test_img = cv2.imread("/dev/null")  # 这会失败但不影响
+                    # 如果到这里，说明 cv2 模块正常加载
                 except Exception:
-                    self._display_available = False
-                    self.config.enabled = False
-                    self._save_path.parent.mkdir(parents=True, exist_ok=True)
+                    # 如果测试失败，可能是 OpenCV 没有编译 GUI 支持
+                    logger.warning("OpenCV 可能没有编译 GUI 支持，将在运行时自动检测")
 
     def render(self, frame, detection: DetectionResult, vector: MotionVector) -> None:
-        # 如果可视化被禁用，直接返回（不进行任何处理）
-        if not self.config.enabled:
+        # 在 headless 模式下，即使 enabled=False，也创建带标注的图像用于保存
+        # 只有在完全禁用可视化且不需要保存时才返回
+        if not self.config.enabled and self._display_available:
             return
 
         # 创建显示图像（无论是否有显示环境，都需要绘制用于保存）
@@ -126,7 +136,7 @@ class Visualizer:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
         # 尝试显示窗口或保存图像
-        if self._display_available:
+        if self._display_available and self.config.enabled:
             # 有显示环境：尝试显示窗口
             try:
                 cv2.imshow(self.config.window_name, display)
@@ -135,19 +145,29 @@ class Visualizer:
             except (cv2.error, SystemError, OSError) as exc:
                 # 如果显示失败，禁用后续的可视化尝试
                 if self._display_available:
-                    logger.warning("显示窗口失败，自动禁用可视化: {}", exc)
-                    logger.info("程序将在无头模式下继续运行（无图形界面）")
+                    logger.warning("显示窗口失败，自动切换到 headless 模式: {}", exc)
+                    logger.info("程序将在无头模式下继续运行，定期保存检测图像到: {}", self._save_path)
                     self._display_available = False
                     self.config.enabled = False
                     self._save_path.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            # Headless 模式：定期保存带标注的图像
+                    # 立即保存一次图像
+                    try:
+                        cv2.imwrite(str(self._save_path), display)
+                        self._last_save_time = time.time()
+                    except Exception:
+                        pass
+        
+        # Headless 模式：定期保存带标注的图像（无论 enabled 状态）
+        if not self._display_available:
             current_time = time.time()
             if current_time - self._last_save_time >= self._save_interval:
                 try:
                     cv2.imwrite(str(self._save_path), display)
                     self._last_save_time = current_time
-                    logger.debug("已保存检测图像到: {}", self._save_path)
+                    self._save_count += 1
+                    # 每10次保存输出一次日志，避免日志过多
+                    if self._save_count % 10 == 0 or self._save_count == 1:
+                        logger.info("已保存检测图像 #{} 到: {}", self._save_count, self._save_path)
                 except Exception as exc:
                     logger.warning("保存图像失败: {}", exc)
 

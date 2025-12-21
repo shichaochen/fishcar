@@ -124,6 +124,43 @@ def main() -> None:
             camera.close()
         return
     
+    # 检查是否有图形界面
+    has_display = os.environ.get("DISPLAY") is not None
+    if not has_display:
+        logger.warning("检测到无图形界面环境（无 DISPLAY 变量）")
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("无图形界面标定方法：")
+        logger.info("=" * 60)
+        logger.info("")
+        logger.info("方法1（推荐）：保存图片后手动标定")
+        logger.info("  步骤1: python -m raspi.src.calibrate_aquarium --save-image /tmp/aquarium_frame.jpg")
+        logger.info("  步骤2: 将图片传输到有图形界面的电脑")
+        logger.info("  步骤3: 在有图形界面的电脑上运行:")
+        logger.info("         python -m raspi.src.calibrate_aquarium --from-image /path/to/aquarium_frame.jpg")
+        logger.info("")
+        logger.info("方法2：手动输入坐标")
+        logger.info("  python -m raspi.src.calibrate_aquarium --manual TL_X TL_Y TR_X TR_Y BR_X BR_Y BL_X BL_Y")
+        logger.info("  例如: python -m raspi.src.calibrate_aquarium --manual 100 50 600 50 600 400 100 400")
+        logger.info("")
+        logger.info("方法3：直接编辑配置文件")
+        logger.info("  nano {}", calibration_path)
+        logger.info("")
+        logger.info("详细说明请参考: docs/calibration_headless.md")
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("")
+        logger.info("自动保存图片到 /tmp/aquarium_frame.jpg...")
+        cv2.imwrite("/tmp/aquarium_frame.jpg", frame)
+        logger.info("✓ 图片已保存到: /tmp/aquarium_frame.jpg")
+        logger.info("")
+        logger.info("请使用以下命令之一继续标定：")
+        logger.info("  1. 传输图片到有图形界面的电脑进行标定")
+        logger.info("  2. 使用 --manual 参数手动输入坐标")
+        logger.info("  3. 直接编辑配置文件: {}", calibration_path)
+        camera.close()
+        sys.exit(0)
+    
     # 交互式标定（需要图形界面）
     try:
         logger.info("请在图像上点击四个角点：左上、右上、右下、左下")
@@ -138,10 +175,13 @@ def main() -> None:
             logger.warning("标定已取消")
     except cv2.error as e:
         logger.error("图形界面错误: {}", e)
+        logger.error("")
         logger.error("请使用以下方法之一：")
         logger.error("1. 使用 --save-image 保存图片，然后在有图形界面的环境中标定")
         logger.error("2. 使用 --manual 参数手动输入坐标")
         logger.error("3. 直接编辑配置文件: {}", calibration_path)
+        logger.error("")
+        logger.error("详细说明请参考: docs/calibration_headless.md")
         sys.exit(1)
     finally:
         if not args.from_image:
