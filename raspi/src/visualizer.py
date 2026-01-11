@@ -35,6 +35,8 @@ class Visualizer:
         self._save_interval = 1.0  # 每1秒保存一次图像（headless 模式）
         self._save_path = Path.home() / "fishcar" / "raspi" / "logs" / "latest_detection.jpg"
         self._save_count = 0  # 保存计数，用于日志输出
+        # 使用内部变量跟踪 enabled 状态（因为 config 是 frozen dataclass）
+        self._enabled = config.enabled
         
         # 检测是否有显示环境
         if not config.enabled:
@@ -52,8 +54,8 @@ class Visualizer:
                 logger.info("查看最新画面: cat {} 或使用 scp 下载", self._save_path)
                 logger.info("")
                 self._display_available = False
-                # 自动禁用配置中的可视化窗口显示
-                self.config.enabled = False
+                # 自动禁用可视化窗口显示
+                self._enabled = False
                 # 确保保存目录存在
                 self._save_path.parent.mkdir(parents=True, exist_ok=True)
             else:
@@ -72,7 +74,7 @@ class Visualizer:
     def render(self, frame, detection: DetectionResult, vector: MotionVector) -> None:
         # 在 headless 模式下，即使 enabled=False，也创建带标注的图像用于保存
         # 只有在完全禁用可视化且不需要保存时才返回
-        if not self.config.enabled and self._display_available:
+        if not self._enabled and self._display_available:
             return
 
         # 创建显示图像（无论是否有显示环境，都需要绘制用于保存）
@@ -136,7 +138,7 @@ class Visualizer:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
         # 尝试显示窗口或保存图像
-        if self._display_available and self.config.enabled:
+        if self._display_available and self._enabled:
             # 有显示环境：尝试显示窗口
             try:
                 cv2.imshow(self.config.window_name, display)
@@ -148,7 +150,7 @@ class Visualizer:
                     logger.warning("显示窗口失败，自动切换到 headless 模式: {}", exc)
                     logger.info("程序将在无头模式下继续运行，定期保存检测图像到: {}", self._save_path)
                     self._display_available = False
-                    self.config.enabled = False
+                    self._enabled = False
                     self._save_path.parent.mkdir(parents=True, exist_ok=True)
                     # 立即保存一次图像
                     try:
@@ -228,7 +230,7 @@ class Visualizer:
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
     def close(self) -> None:
-        if self.config.enabled and self._display_available:
+        if self._enabled and self._display_available:
             try:
                 cv2.destroyAllWindows()
             except Exception:
