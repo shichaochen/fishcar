@@ -49,17 +49,18 @@ class Application:
         setup_logging(self.config.logging)
         self.camera = CameraStream(self.config.camera)
         self.detector = FishDetector(self.config.detector)
-        self.mapper = MecanumMapper(self.config.motion_mapping)
-        self.serial = SerialBridge(self.config.serial)
-        self.safety = SafetyManager(self.config.serial.watchdog_timeout)
-        
-        # 加载鱼缸边界标定
+
+        # 加载鱼缸边界标定（先于 mapper，用于透视变换坐标映射）
         calibrator = AquariumCalibrator(Path(self.config.calibration_path))
         aquarium_bounds = calibrator.load_from_config()
         if aquarium_bounds:
-            logger.info("已加载鱼缸边界标定数据")
+            logger.info("已加载鱼缸边界标定数据，将用于透视变换坐标映射")
         else:
-            logger.warning("未找到鱼缸边界标定数据，运行标定工具进行标定")
+            logger.warning("未找到鱼缸边界标定数据，运动映射将回退到全图坐标；请运行标定工具进行标定")
+
+        self.mapper = MecanumMapper(self.config.motion_mapping, aquarium_bounds)
+        self.serial = SerialBridge(self.config.serial)
+        self.safety = SafetyManager(self.config.serial.watchdog_timeout)
         
         # 初始化轨迹记录器
         trajectory_recorder = None
