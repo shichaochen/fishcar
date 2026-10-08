@@ -14,12 +14,44 @@ except ImportError:
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-import cv2
 import numpy as np
+
+try:
+    import cv2  # 仅交互式标定 UI 需要；坐标数学为纯 numpy
+except ImportError:  # pragma: no cover
+    cv2 = None  # type: ignore[assignment]
+
+
+def _compute_homography(src: np.ndarray, dst: np.ndarray) -> np.ndarray:
+    """用 DLT 直接线性变换求解单应矩阵 H（3x3），将 src 点映射到 dst 点。
+
+    纯 numpy 实现，不依赖 cv2，保证坐标数学在任何环境可测试。
+    src/dst: shape (4, 2)，按左上、右上、右下、左下顺序对应。
+    """
+    if src.shape != (4, 2) or dst.shape != (4, 2):
+        raise ValueError("src 和 dst 都必须是 4 个点的 (4, 2) 数组")
+    rows = []
+    for (x, y), (xp, yp) in zip(src.astype(np.float64), dst.astype(np.float64)):
+        rows.append([-x, -y, -1, 0, 0, 0, xp * x, xp * y, xp])
+        rows.append([0, 0, 0, -x, -y, -1, yp * x, yp * y, yp])
+    _, _, vt = np.linalg.svd(np.asarray(rows, dtype=np.float64))
+    h = vt[-1].reshape(3, 3)
+    if abs(h[2, 2]) < 1e-12:
+        raise ValueError("退化的角点配置，无法求解单应矩阵")
+    return h / h[2, 2]
+
+
+def _apply_homography(h: np.ndarray, point: tuple[float, float]) -> Optional[tuple[float, float]]:
+    """对单个点应用单应矩阵，返回归一化后的 (x, y)。"""
+    x, y = point
+    p = h @ np.array([x, y, 1.0], dtype=np.float64)
+    if abs(p[2]) < 1e-12:
+        return None
+    return (float(p[0] / p[2]), float(p[1] / p[2]))
 
 
 @dataclass
@@ -29,6 +61,7 @@ class AquariumBounds:
     top_right: tuple[int, int]
     bottom_right: tuple[int, int]
     bottom_left: tuple[int, int]
+    _homography: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
 
     def to_array(self) -> np.ndarray:
         """转换为numpy数组，用于透视变换"""
@@ -38,6 +71,14 @@ class AquariumBounds:
             self.bottom_right,
             self.bottom_left
         ], dtype=np.float32)
+
+    def get_homography(self) -> np.ndarray:
+        """获取像素坐标 → 鱼缸归一化坐标 [0,1]x[0,1] 的单应矩阵（惰性计算并缓存）。"""
+        if self._homography is None:
+            src = self.to_array().astype(np.float64)
+            dst = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float64)
+            self._homography = _compute_homography(src, dst)
+        return self._homography
 
     def get_rect(self) -> tuple[int, int, int, int]:
         """获取边界矩形 (x, y, width, height)"""
@@ -51,41 +92,42 @@ class AquariumBounds:
         h = int(max(y_coords) - y)
         return (x, y, w, h)
 
+    def pixel_to_tank(self, point: tuple[float, float]) -> Optional[tuple[float, float]]:
+        """将像素坐标经透视变换映射为鱼缸归一化坐标 [0,1]x[0,1]。
+
+        左上为 (0,0)，右下为 (1,1)。点在四边形外时返回 None。
+        这是坐标链路的核心：消除摄像头俯视角度带来的透视畸变。
+        """
+        mapped = _apply_homography(self.get_homography(), point)
+        if mapped is None:
+            return None
+        xn, yn = mapped
+        # 允许微小的浮点误差
+        eps = 1e-6
+        if not (-eps <= xn <= 1.0 + eps and -eps <= yn <= 1.0 + eps):
+            return None
+        return (min(max(xn, 0.0), 1.0), min(max(yn, 0.0), 1.0))
+
+    def tank_to_pixel(self, point: tuple[float, float]) -> tuple[float, float]:
+        """将鱼缸归一化坐标映射回像素坐标（用于可视化叠加）。"""
+        h_inv = np.linalg.inv(self.get_homography())
+        mapped = _apply_homography(h_inv, point)
+        assert mapped is not None  # 逆变换恒有定义
+        return mapped
+
     def contains_point(self, point: tuple[float, float]) -> bool:
-        """检查点是否在鱼缸边界内"""
-        x, y = point
-        # 使用射线法判断点是否在多边形内
-        corners = [
-            self.top_left, self.top_right,
-            self.bottom_right, self.bottom_left
-        ]
-        n = len(corners)
-        inside = False
-        j = n - 1
-        for i in range(n):
-            xi, yi = corners[i]
-            xj, yj = corners[j]
-            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
-                inside = not inside
-            j = i
-        return inside
+        """检查点是否在鱼缸边界（四边形）内"""
+        return self.pixel_to_tank(point) is not None
 
     def normalize_point(self, point: tuple[float, float]) -> Optional[tuple[float, float]]:
         """
-        将像素坐标转换为相对于鱼缸边界的归一化坐标 (0-1)
-        返回 (x_norm, y_norm)，如果点在边界外返回 None
-        """
-        if not self.contains_point(point):
-            return None
+        将像素坐标转换为相对于鱼缸边界的归一化坐标 (0-1)。
+        返回 (x_norm, y_norm)，如果点在边界外返回 None。
 
-        # 获取边界矩形
-        x, y, w, h = self.get_rect()
-        
-        # 计算相对坐标
-        x_norm = (point[0] - x) / w if w > 0 else 0.0
-        y_norm = (point[1] - y) / h if h > 0 else 0.0
-        
-        return (x_norm, y_norm)
+        注：旧实现用外接矩形近似，现已改为透视变换，精度更高。
+        接口保持不变，调用方可无缝升级。
+        """
+        return self.pixel_to_tank(point)
 
 
 class AquariumCalibrator:
@@ -141,11 +183,13 @@ class AquariumCalibrator:
             json.dump(data, f, indent=2)
         print(f"标定数据已保存到: {self.config_path}")
 
-    def interactive_calibrate(self, frame: cv2.typing.MatLike) -> Optional[AquariumBounds]:
+    def interactive_calibrate(self, frame: "cv2.typing.MatLike") -> Optional[AquariumBounds]:
         """
         交互式标定：在图像上点击四个角点
         顺序：左上、右上、右下、左下
         """
+        if cv2 is None:
+            raise RuntimeError("交互式标定需要 OpenCV，请先安装 opencv-python")
         self.points = []
         display = frame.copy()
         
